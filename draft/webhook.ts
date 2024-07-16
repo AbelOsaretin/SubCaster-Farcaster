@@ -2,53 +2,12 @@ import express, { Express, Request, Response } from "express";
 import dotenv from "dotenv";
 import { TCast } from "./types";
 import connectDB from "./src/db";
-import {
-  UserToSubscribes,
-  SubscribeToUsers,
-  IUserToSubscribes,
-  ISubscribeToUsers,
-} from "./src/models";
-import mongoose from "mongoose";
+import { UserToSubscribes, SubscribeToUsers } from "./src/models";
 
 dotenv.config();
 
 const app: Express = express();
 const port = process.env.PORT || 4343;
-
-const userToSubscribes: Record<number, number[]> = {};
-const subscribeToUsers: Record<number, number[]> = {};
-
-// MongoDB
-
-const saveData = async (): Promise<void> => {
-  try {
-    await connectDB();
-
-    // Save userToSubscribes
-    for (const [userId, subscribes] of Object.entries(userToSubscribes)) {
-      const newUserToSubscribes: IUserToSubscribes = new UserToSubscribes({
-        userId: parseInt(userId, 10),
-        subscribes,
-      });
-      await newUserToSubscribes.save();
-    }
-
-    // Save subscribeToUsers
-    for (const [subscribeId, users] of Object.entries(subscribeToUsers)) {
-      const newSubscribeToUsers: ISubscribeToUsers = new SubscribeToUsers({
-        subscribeId: parseInt(subscribeId, 10),
-        users,
-      });
-      await newSubscribeToUsers.save();
-    }
-
-    console.log("Data saved successfully");
-  } catch (err) {
-    console.error(err);
-  } finally {
-    mongoose.connection.close();
-  }
-};
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -57,7 +16,7 @@ app.get("/", (req: Request, res: Response) => {
   res.send("Express + TypeScript Server || GET");
 });
 
-app.post("/", (req: Request, res: Response) => {
+app.post("/", async (req: Request, res: Response) => {
   const body: TCast = req.body;
 
   try {
@@ -66,6 +25,11 @@ app.post("/", (req: Request, res: Response) => {
         (profile: any) => profile.fid === 792715
       ).length > 0
     ) {
+      console.log({
+        authorFid: body.data.author.fid,
+        parentAuthorFid: body.data.parent_author.fid,
+      });
+
       const {
         author: { fid: authorFid },
         parent_author: { fid: parentAuthorFid },
@@ -79,42 +43,47 @@ app.post("/", (req: Request, res: Response) => {
         );
       }
 
-      if (userToSubscribes[authorFid] === undefined) {
-        userToSubscribes[authorFid] = [];
-        // saveData();
+      const userData = await UserToSubscribes.findById(authorFid);
+      const subscribesData = await SubscribeToUsers.findById(parentAuthorFid);
+
+      if (userData === null) {
         const userSub = new UserToSubscribes({
-          userId: authorFid,
-          subscribes: [],
+          _id: authorFid,
+          subscribes: [parentAuthorFid],
         });
 
-        userSub.save();
+        await userSub.save();
+        console.log("User subscribed:", authorFid, parentAuthorFid);
       }
 
-      if (subscribeToUsers[parentAuthorFid] === undefined) {
-        subscribeToUsers[parentAuthorFid] = [];
-        // saveData();
-        const userSub = new SubscribeToUsers({
-          subscribeId: authorFid,
-          users: [],
+      if (subscribesData === null) {
+        const subUser = new SubscribeToUsers({
+          _id: parentAuthorFid,
+          users: [authorFid],
         });
 
-        userSub.save();
+        await subUser.save();
+        console.log("User subscribed:", authorFid, parentAuthorFid);
       }
 
-      if (userToSubscribes[authorFid].indexOf(parentAuthorFid) === -1) {
-        userToSubscribes[authorFid].push(parentAuthorFid);
-        // saveData();
+      if (userData?.subscribes.indexOf(parentAuthorFid) === -1) {
+        userData?.subscribes.push(parentAuthorFid);
+        await userData?.save();
+
+        console.log("User updated:", authorFid, parentAuthorFid);
       }
 
-      if (subscribeToUsers[parentAuthorFid].indexOf(authorFid) === -1) {
-        subscribeToUsers[parentAuthorFid].push(authorFid);
-        // saveData();
+      if (subscribesData?.users.indexOf(authorFid) === -1) {
+        subscribesData?.users.push(authorFid);
+        await subscribesData?.save();
+
+        console.log("User updated:", authorFid, parentAuthorFid);
       }
+
+      console.log({ userData, subscribesData });
 
       console.log({
         message: "Webhook received: ",
-        userToSubscribes,
-        subscribeToUsers,
       });
     } else {
       throw new Error("Webhook ignored");
@@ -126,6 +95,12 @@ app.post("/", (req: Request, res: Response) => {
   res.send("Express + TypeScript Server || POST");
 });
 
-app.listen(port, () => {
-  console.log(`[server]: Server is running at http://localhost:${port}`);
-});
+connectDB()
+  .then(() => {
+    app.listen(port, () => {
+      console.log(`[server]: Server is running at http://localhost:${port}`);
+    });
+  })
+  .catch((err) => {
+    console.error(err);
+  });

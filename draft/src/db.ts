@@ -1,15 +1,20 @@
 import mongoose from "mongoose";
 
-const connectDB = async (): Promise<void> => {
+// Create a MongoClient with a MongoClie>ntOptions object to set the Stable API version
+
+async function connectDB() {
   try {
-    await mongoose.connect(
-      "mongodb+srv://contactabel321:<password>@subcasterbot.rrct9sp.mongodb.net/?retryWrites=true&w=majority&appName=SubCasterBot"
+    // Connect the client to the server	(optional starting in v4.7)
+
+    mongoose.connect(process.env.MONGODB_URI!);
+    // Send a ping to confirm a successful connection
+    console.log(
+      "Pinged your deployment. You successfully connected to MongoDB!"
     );
-    console.log("MongoDB connected");
-  } catch (err) {
-    console.error(err);
-    process.exit(1);
+  } finally {
+    // Ensures that the client will close when you finish/error
+    // await client.close();
   }
-};
+}
 
 export default connectDB;
