@@ -1,0 +1,16 @@
+{
+  "name": "subcaster-farcaster",
+  "version": "1.0.0",
+  "description": "Repository for SubCaster Bot on Farcaster",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@neynar/nodejs-sdk": "^1.37.2",
+    "dotenv": "^16.4.5"
+  }
+}
