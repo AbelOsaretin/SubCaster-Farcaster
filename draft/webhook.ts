@@ -4,6 +4,7 @@ import { TCast } from "./types";
 import connectDB from "./src/db";
 import { UserToSubscribes, SubscribeToUsers } from "./src/models";
 import { addSubscribesToWebhook } from "./src/webhook-helper";
+import { frameReply } from "./src/frameReply-helper";
 
 dotenv.config();
 
@@ -83,6 +84,8 @@ app.post("/subscribe", async (req: Request, res: Response) => {
       }
 
       await addSubscribesToWebhook(parentAuthorFid);
+
+      await frameReply(body);
 
       console.log({ userData, subscribesData });
 
