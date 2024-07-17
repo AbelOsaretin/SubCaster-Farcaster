@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import { TCast } from "./types";
 import connectDB from "./src/db";
 import { UserToSubscribes, SubscribeToUsers } from "./src/models";
+import { addSubscribesToWebhook } from "./src/webhook-helper";
 
 dotenv.config();
 
@@ -16,11 +17,12 @@ app.get("/", (req: Request, res: Response) => {
   res.send("Express + TypeScript Server || GET");
 });
 
-app.post("/", async (req: Request, res: Response) => {
+app.post("/subscribe", async (req: Request, res: Response) => {
   const body: TCast = req.body;
 
   try {
     if (
+      body?.data?.mentioned_profiles &&
       body.data.mentioned_profiles.filter(
         (profile: any) => profile.fid === 792715
       ).length > 0
@@ -80,6 +82,8 @@ app.post("/", async (req: Request, res: Response) => {
         console.log("User updated:", authorFid, parentAuthorFid);
       }
 
+      await addSubscribesToWebhook(parentAuthorFid);
+
       console.log({ userData, subscribesData });
 
       console.log({
@@ -92,7 +96,31 @@ app.post("/", async (req: Request, res: Response) => {
     console.error(error);
   }
 
-  res.send("Express + TypeScript Server || POST");
+  res.send("Express + TypeScript Server || POST Subscribe");
+});
+
+app.post("/watch", async (req: Request, res: Response) => {
+  const body: TCast = req.body;
+
+  const {
+    author: { fid: authorFid },
+  } = body.data;
+
+  if (authorFid === 792715) {
+    throw new Error("Webhook ignored: Author is Bot");
+  }
+
+  console.log({
+    message: "Webhook received: ",
+    ...body,
+  });
+
+  res.send("Express + TypeScript Server || POST Watch");
+
+  try {
+  } catch (error) {
+    console.error(error);
+  }
 });
 
 connectDB()
