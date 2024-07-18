@@ -4,7 +4,8 @@ import { TCast } from "./types";
 import connectDB from "./src/db";
 import { UserToSubscribes, SubscribeToUsers } from "./src/models";
 import { addSubscribesToWebhook } from "./src/webhook-helper";
-import { frameReply } from "./src/frameReply-helper";
+import { frameReply, sendDirectCast } from "./src/frameReply-helper";
+import { neynarClient } from "./src/config";
 
 dotenv.config();
 
@@ -38,7 +39,15 @@ app.post("/subscribe", async (req: Request, res: Response) => {
         parent_author: { fid: parentAuthorFid },
       } = body.data;
 
+      const parent_author = await neynarClient.fetchBulkUsers([
+        parentAuthorFid,
+      ]);
+
       if (parentAuthorFid === authorFid) {
+        await frameReply(
+          body.data.hash,
+          `gm ${body.data.author.username}, you can't subscribe to yourself`
+        );
         throw new Error(
           `Webhook ignored: Author and Parent Author are the same,
           ${authorFid},
@@ -85,7 +94,10 @@ app.post("/subscribe", async (req: Request, res: Response) => {
 
       await addSubscribesToWebhook(parentAuthorFid);
 
-      await frameReply(body);
+      await frameReply(
+        body.data.hash,
+        `gm ${body.data.author.username}, You've have subscribed to receive Casts from ${parent_author.users[0].username} to your Direct Casts. Note that all Subscriptions are automatically deleted after 1 day.`
+      );
 
       console.log({ userData, subscribesData });
 
@@ -103,24 +115,42 @@ app.post("/subscribe", async (req: Request, res: Response) => {
 });
 
 app.post("/watch", async (req: Request, res: Response) => {
-  const body: TCast = req.body;
-
-  const {
-    author: { fid: authorFid },
-  } = body.data;
-
-  if (authorFid === 792715) {
-    throw new Error("Webhook ignored: Author is Bot");
-  }
-
-  console.log({
-    message: "Webhook received: ",
-    ...body,
-  });
-
-  res.send("Express + TypeScript Server || POST Watch");
-
   try {
+    const body: TCast = req.body;
+
+    const {
+      author: {
+        fid: authorFid,
+        username: authorUsername,
+        display_name: authorDisplayName,
+      },
+    } = body.data;
+
+    if (authorFid === 792715) {
+      throw new Error("Webhook ignored: Author is Bot");
+    }
+
+    const subscribesData = await SubscribeToUsers.findById(authorFid);
+
+    if (subscribesData === null) {
+      throw new Error("Webhook ignored: Author is not subscribed");
+    }
+
+    const { users } = subscribesData;
+    const userData = await neynarClient.fetchBulkUsers(users);
+
+    await sendDirectCast(
+      users[0],
+      `gm gm, new Cast from [${authorUsername}](https://warpcast.com/${authorUsername}) (${authorDisplayName})
+    https://warpcast.com/${authorUsername}/${body.data.hash.slice(0, 10)}
+    `
+    );
+    console.log({
+      message: "Webhook received: ",
+      userData,
+    });
+
+    res.send("Express + TypeScript Server || POST Watch");
   } catch (error) {
     console.error(error);
   }

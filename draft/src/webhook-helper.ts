@@ -1,22 +1,20 @@
-import { NeynarAPIClient } from "@neynar/nodejs-sdk";
-import { configDotenv } from "dotenv";
-configDotenv();
-
-const client = new NeynarAPIClient(process.env.Neynar_Api_Key!);
-const watcherWebhookId = process.env.WATCHER_WEBHOOK_ID!;
-const watcherWebhookName = "watcher";
-const watcherWebhookUrl = process.env.WATCHER_WEBHOOK_URL!;
+import {
+  neynarClient,
+  watcherWebhookId,
+  watcherWebhookName,
+  watcherWebhookUrl,
+} from "./config";
 
 export const addSubscribesToWebhook = async (fid: number) => {
   try {
-    const data = await client.lookupWebhook(watcherWebhookId);
+    const data = await neynarClient.lookupWebhook(watcherWebhookId);
 
     const oldSubscribes: number[] =
       data.webhook?.subscription?.filters["cast.created"]?.author_fids || [];
 
     if (!oldSubscribes.includes(fid)) {
       oldSubscribes.push(fid);
-      await client.updateWebhook(
+      await neynarClient.updateWebhook(
         watcherWebhookId,
         watcherWebhookName,
         watcherWebhookUrl,
