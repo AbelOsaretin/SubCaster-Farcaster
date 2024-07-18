@@ -139,15 +139,23 @@ app.post("/watch", async (req: Request, res: Response) => {
     const { users } = subscribesData;
     const userData = await neynarClient.fetchBulkUsers(users);
 
-    await sendDirectCast(
-      users[0],
-      `gm gm, new Cast from [${authorUsername}](https://warpcast.com/${authorUsername}) (${authorDisplayName})
-    https://warpcast.com/${authorUsername}/${body.data.hash.slice(0, 10)}
-    `
-    );
-    console.log({
-      message: "Webhook received: ",
-      userData,
+    Promise.all(
+      users.map((user) => {
+        sendDirectCast(
+          user,
+          `
+          GM GM.
+          New Cast from ${authorDisplayName}
+          https://warpcast.com/${authorUsername}
+          https://warpcast.com/${authorUsername}/${body.data.hash.slice(0, 10)}
+          `
+        );
+      })
+    ).then(() => {
+      console.log({
+        message: `Watcher Webhook received from ${authorUsername} and sent:  `,
+        users,
+      });
     });
 
     res.send("Express + TypeScript Server || POST Watch");
